@@ -7,6 +7,8 @@ from pandas import json_normalize
 import platform
 import re
 import ffmpy
+import subprocess
+from mimetypes import guess_type
 
 def sanitize(text):
     pattern = re.compile(r'\x1B\[[0-9;]*m')
@@ -80,12 +82,12 @@ if format_check:
         ]
 
         if modechooser == "Video":
-            columns_to_omit.append('acodec')
+            # columns_to_omit.append('acodec')
             df = json_normalize(video_formats).drop(columns=columns_to_omit)
             # id_list_video = st.selectbox("Enter Preferred Format ID of video stream: (updated)", options=videolist, label_visibility='visible')
 
         else:
-            columns_to_omit.append('vcodec')
+            # columns_to_omit.append('vcodec')
             df = json_normalize(audio_formats).drop(columns=columns_to_omit)
 
         videolist = df['format_id'].tolist()    
@@ -152,18 +154,24 @@ if st.button("Download"):
             formats = info_dict.get('formats', [])
 
             if id_list_video:
+                print("picking the chosen format")
                 ydl_opts['format'] = id_list_video
             else:
-                    
+                print("picking the highest quality format")   
                 highest_id_format = max(formats, key=lambda x: int(x['format_id']))
 
                 # # Update the 'format' option with the highest format ID
                 ydl_opts['format'] = highest_id_format['format_id']
 
+            # if modechooser == "Video":
+            #     ydl_opts['format'] = 'bestvideo'
+            # else:
+            #     ydl_opts['format'] = 'bestvideo'
+
             # print(f"format: {ydl_opts['format']}")
             chosen_format = next((f for f in formats if f['format_id'] == ydl_opts['format']), None)
             # print(f"chosen_format: {chosen_format}")
-
+            print("format: " + str(ydl_opts['format']))
             # if 'outtmpl' in ydl_opts:
             #     del ydl_opts['outtmpl']
 
@@ -171,11 +179,42 @@ if st.button("Download"):
             downloaded_file_path = os.path.join(downloadpath, info_dict['title'] + f'_{modechooser}.' + chosen_format['ext'])
             print(downloaded_file_path +"\n"+str(ydl_opts['outtmpl']))
             ydl_opts['outtmpl']['default'] = downloaded_file_path
-
+            # print(str(ydl_opts['outtmpl']))
+            
             if os.path.exists(downloaded_file_path):
                 os.remove(downloaded_file_path)
 
-            ydl.download([video_url])
+            # command = [
+            #     "yt-dlp",
+            #     "-f",
+            #     ydl_opts['format'],
+            #     "-o",
+            #     downloaded_file_path,
+            #     video_url
+            # ]
+
+            # # Create a subprocess to run the command
+            # process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+            # Command to run with subprocess
+            command = 'yt-dlp -f '+ ydl_opts['format'] +' -o "' + downloaded_file_path +'" "'+ video_url +'"'
+
+            # Create a subprocess to run the command with shell=True
+            process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+            # Read and print the output in real-time
+            while True:
+                output = process.stdout.readline()
+                if output == '' and process.poll() is not None:
+                    break
+                if output:
+                    # print(output.strip())
+                    progress.markdown(sanitize(output.strip()))
+
+            # Wait for the process to finish
+            process.wait()
+
+            # ydl.download([video_url])
 
             st.success(f"Video downloaded successfully. The file is saved at: {downloaded_file_path}")
         # except Exception as e:
@@ -232,15 +271,36 @@ if cutter_button:
         inputs={output_video: None, output_audio: None},
         outputs={final_output: ['-c:v', 'copy', '-c:a', 'aac', '-strict', 'experimental']}
     )
-    ff.run()
+    # ff.run()
+
+    # Redirect stdout and stderr to subprocess.PIPE
+    process = ff.run(stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    # Create a while loop to capture and print the output in real time
+    while True:
+        stdout_line = process.stdout.readline()
+        stderr_line = process.stderr.readline()
+
+        if not stdout_line and not stderr_line:
+            break
+
+        if stdout_line:
+            progress.markdown(sanitize(stdout_line.decode('utf-8').strip()))
+        # if stderr_line:
+        #     print("FFmpeg stderr: " + stderr_line.decode('utf-8').strip())
+
+    # Wait for the process to finish
+    process.wait()
 
     st.write(f"Operation success: {final_output}")
     with open(final_output, "rb") as file:
-        st.download_button('Download final video', file)
+        st.download_button('Download final video', file, os.path.basename(final_output),
+                           guess_type(os.path.basename(final_output)))
 
 makedownload_button = st.button("Make Download Button")
 makedownload_textbox = st.text_input("Final video path")
 if makedownload_button:
     if os.path.exists(makedownload_textbox):
         with open(makedownload_textbox, "rb") as file:
-            st.download_button('Download video', file)
+            st.download_button('Download video', file, os.path.basename(makedownload_textbox),
+                               guess_type(os.path.basename(makedownload_textbox)))

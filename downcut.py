@@ -80,39 +80,44 @@ if format_check:
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info_dict = ydl.extract_info(video_url, download=False)
-        formats = info_dict.get('formats', [])
+        try:
+            info_dict = ydl.extract_info(video_url, download=False)
+            formats = info_dict.get('formats', [])
 
-        # def parse_format_id(format):
-        #     try:
-        #         return int(format['format_id'])
-        #     except (ValueError, TypeError):
-        #         return 0
+            # def parse_format_id(format):
+            #     try:
+            #         return int(format['format_id'])
+            #     except (ValueError, TypeError):
+            #         return 0
 
-        video_formats = [f for f in formats if 'acodec' in f and f['acodec'] == 'none']
-        audio_formats = [f for f in formats if 'vcodec' in f and f['vcodec'] == 'none']
+            video_formats = [f for f in formats if 'acodec' in f and f['acodec'] == 'none']
+            audio_formats = [f for f in formats if 'vcodec' in f and f['vcodec'] == 'none']
 
-        columns_to_omit = [
-            'url', 'width', 'height', 'rows', 'columns', 'fragments',
-            'aspect_ratio', 'resolution', 'http_headers.User-Agent', 'http_headers.Accept',
-            'http_headers.Accept-Language', 'http_headers.Sec-Fetch-Mode', 'asr', 'source_preference',
-            'audio_channels', 'quality', 'has_drm', 'language', 'language_preference',
-            'preference', 'dynamic_range', 'downloader_options.http_chunk_size',
-            'format_index', 'manifest_url'
-        ]
+            columns_to_omit = [
+                'url', 'width', 'height', 'rows', 'columns', 'fragments',
+                'aspect_ratio', 'resolution', 'http_headers.User-Agent', 'http_headers.Accept',
+                'http_headers.Accept-Language', 'http_headers.Sec-Fetch-Mode', 'asr', 'source_preference',
+                'audio_channels', 'quality', 'has_drm', 'language', 'language_preference',
+                'preference', 'dynamic_range', 'downloader_options.http_chunk_size',
+                'format_index', 'manifest_url'
+            ]
 
-        if modechooser == "Video":
-            # columns_to_omit.append('acodec')
-            df = json_normalize(video_formats).drop(columns=columns_to_omit)
-            # id_list_video = st.selectbox("Enter Preferred Format ID of video stream: (updated)", options=videolist, label_visibility='visible')
+            if modechooser == "Video":
+                # columns_to_omit.append('acodec')
+                df = json_normalize(video_formats).drop(columns=columns_to_omit)
+                # id_list_video = st.selectbox("Enter Preferred Format ID of video stream: (updated)", options=videolist, label_visibility='visible')
 
-        else:
-            # columns_to_omit.append('vcodec')
-            df = json_normalize(audio_formats).drop(columns=columns_to_omit)
+            else:
+                # columns_to_omit.append('vcodec')
+                df = json_normalize(audio_formats).drop(columns=columns_to_omit)
 
-        videolist = df['format_id'].tolist()    
-        st.session_state['idlistvideo'] = videolist
-        st.dataframe(df)
+            videolist = df['format_id'].tolist()    
+            st.session_state['idlistvideo'] = videolist
+            st.dataframe(df)
+            
+        except Exception as e:
+            st.error(f"Error: {str(e)}")
+            print(f"Error: {str(e)}")
 
         # if video_formats:
         #     highest_video_format = max(video_formats, key=parse_format_id)

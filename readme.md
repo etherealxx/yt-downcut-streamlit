@@ -1,0 +1,1 @@
+Inneficient as heck. Might opt for colab + gradio instead later. Streamlit's resource is limited to 1GB< and the download speed itself is horrible compared to colab's.
